@@ -1,6 +1,4 @@
 import sys
-sys.path.append('core')
-
 import argparse
 import glob
 import numpy as np
@@ -8,17 +6,16 @@ import torch
 from tqdm import tqdm
 from pathlib import Path
 from core.igev_stereo import IGEVStereo
+# from core_rt.rt_igev_stereo import IGEVStereo
 from core.utils.utils import InputPadder
 from PIL import Image
 from matplotlib import pyplot as plt
 import os
 import skimage.io
 import cv2
-from utils.frame_utils import readPFM
-
+# from utils.frame_utils import readPFM
 
 DEVICE = 'cuda'
-
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def load_image(imfile):
@@ -29,7 +26,6 @@ def load_image(imfile):
 def demo(args):
     model = torch.nn.DataParallel(IGEVStereo(args), device_ids=[0])
     model.load_state_dict(torch.load(args.restore_ckpt))
-
     model = model.module
     model.to(DEVICE)
     model.eval()
@@ -57,28 +53,42 @@ def demo(args):
             if args.save_numpy:
                 np.save(output_directory / f"{file_stem}.npy", disp.squeeze())
 
-            # disp = np.round(disp * 256).astype(np.uint16)
-            # cv2.imwrite(filename, cv2.applyColorMap(cv2.convertScaleAbs(disp.squeeze(), alpha=0.01),cv2.COLORMAP_JET), [int(cv2.IMWRITE_PNG_COMPRESSION), 0])
+            disp = np.round(disp * 256).astype(np.uint16)
+            cv2.imwrite(filename, cv2.applyColorMap(cv2.convertScaleAbs(disp.squeeze(), alpha=0.01),cv2.COLORMAP_JET), [int(cv2.IMWRITE_PNG_COMPRESSION), 0])
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--restore_ckpt', help="restore checkpoint", default='./pretrained_models/igev_plusplus/sceneflow.pth')
+    parser.add_argument('--restore_ckpt', help="restore checkpoint", 
+                        default='./pretrained_models/igev_plusplus/sceneflow.pth'
+                        # default='./pretrained_models/igev_rt/sceneflow.pth'
+                        )
     parser.add_argument('--save_numpy', action='store_true', help='save output as numpy arrays')
     parser.add_argument('-l', '--left_imgs', help="path to all first (left) frames", default="./demo-imgs/*/im0.png")
     parser.add_argument('-r', '--right_imgs', help="path to all second (right) frames", default="./demo-imgs/*/im1.png")
-    parser.add_argument('--output_directory', help="directory to save output", default="demo_output")
-    parser.add_argument('--mixed_precision', action='store_true', default=True, help='use mixed precision')
+    
+    parser.add_argument('--output_directory', help="directory to save output", default="demo_output/sceneflow")
+    # parser.add_argument('--output_directory', help="directory to save output", default="demo_output/rt_sceneflow")
+    
+    parser.add_argument('--mixed_precision', action='store_true', default=False, help='use mixed precision')
     parser.add_argument('--precision_dtype', default='float32', choices=['float16', 'bfloat16', 'float32'], help='Choose precision type: float16 or bfloat16 or float32')
     parser.add_argument('--valid_iters', type=int, default=16, help='number of flow-field updates during forward pass')
 
     # Architecture choices
     parser.add_argument('--hidden_dims', nargs='+', type=int, default=[128]*3, help="hidden state and context dimensions")
+    parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
+    parser.add_argument('--max_disp', type=int, default=768, help="max disp range")
+    
+    # parser.add_argument('--hidden_dim', nargs='+', type=int, default=96, help="hidden state and context dimensions")
+    # parser.add_argument('--n_gru_layers', type=int, default=1, help="number of hidden GRU levels")
+    # parser.add_argument('--max_disp', type=int, default=192, help="max disp of geometry encoding volume")
+
     parser.add_argument('--corr_levels', type=int, default=2, help="number of levels in the correlation pyramid")
     parser.add_argument('--corr_radius', type=int, default=4, help="width of the correlation pyramid")
     parser.add_argument('--n_downsample', type=int, default=2, help="resolution of the disparity field (1/2^K)")
-    parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
-    parser.add_argument('--max_disp', type=int, default=768, help="max disp range")
+    parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently") #
+    
+    # used IGEV++ only.
     parser.add_argument('--s_disp_range', type=int, default=48, help="max disp of small disparity-range geometry encoding volume")
     parser.add_argument('--m_disp_range', type=int, default=96, help="max disp of medium disparity-range geometry encoding volume")
     parser.add_argument('--l_disp_range', type=int, default=192, help="max disp of large disparity-range geometry encoding volume")
