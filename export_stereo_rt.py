@@ -40,7 +40,7 @@ class ExportWrapper(torch.nn.Module):
 
 def load_image(imfile):
     img = Image.open(imfile)
-    img = img.resize((640, 352))
+    img = img.resize((416, 416))
     img = np.array(img).astype(np.uint8)[..., :3]
     img = torch.from_numpy(img).permute(2, 0, 1).float()
     return img[None].to(DEVICE)
@@ -53,7 +53,7 @@ class CustomImageDataset(Dataset):
     def __init__(self, root_path, ext_list=(".jpg", "*.png", "*.ppm")):
         if root_path == "im01":
             
-            folders = ["demo-imgs/"]
+            folders = ["demo-imgs/middlebury/"]
             left_list = ['im0.', 'view1.']
             
             self.left_img_list = []
@@ -71,23 +71,28 @@ class CustomImageDataset(Dataset):
                                     continue
                             else:
                                 for left_name in left_list:    
-                                    if left_name in f[0]:
-                                        n4 = f.replace(left_name, "im4.")
-                                        n1 = f.replace(left_name, "im1.")
+                                    if left_name in os.path.basename(f):
+                                        left_file_path = os.path.join(root, f)
+                                        n4 = left_file_path.replace(left_name, "im4.")
+                                        n1 = left_file_path.replace(left_name, "im1.")
                                         if os.path.exists(n4):
-                                            self.left_img_list.append(os.path.join(root, f))
-                                            self.right_img_list.append(os.path.join(root, n4))
+                                            self.left_img_list.append(left_file_path)
+                                            self.right_img_list.append(n4)
                                             break
                                         elif os.path.exists(n1):
-                                            self.left_img_list.append(os.path.join(root, f))
-                                            self.right_img_list.append(os.path.join(root, n1))
+                                            self.left_img_list.append(left_file_path)
+                                            self.right_img_list.append(n1)
                                             break
-                                    elif left_name in f[1]:
+                                    elif left_name in os.path.basename(f):
+                                        left_file_path = os.path.join(root, f)
                                         n5 = f.replace(left_name, "view5.")
                                         if os.path.exists(n5):
-                                            self.left_img_list.append(os.path.join(root, f))
-                                            self.right_img_list.append(os.path.join(root, n5))
+                                            self.left_img_list.append(left_file_path)
+                                            self.right_img_list.append(n5)
                                             break
+                                    # else:
+                                    #     print(f)
+                                    #     print("check")
                                         
     def __len__(self):
         return len(self.left_img_list)
